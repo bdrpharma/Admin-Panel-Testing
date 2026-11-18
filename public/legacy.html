@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BDR Pharma | Zone Command Center</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.0/dist/umd/supabase.min.js"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: { inter: ['Inter', 'sans-serif'] },
+          colors: {
+            pharma: {
+              50: '#f0fdf4', 100: '#dcfce7', 200: '#bbf7d0', 300: '#86efac',
+              400: '#4ade80', 500: '#22c55e', 600: '#16a34a', 700: '#15803d',
+              800: '#166534', 900: '#14532d', 950: '#052e16'
+            },
+            admin: {
+              50: '#f8fafc', 100: '#f1f5f9', 200: '#e2e8f0', 300: '#cbd5e1',
+              400: '#94a3b8', 500: '#64748b', 600: '#475569', 700: '#334155',
+              800: '#1e293b', 900: '#0f172a', 950: '#020617'
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    * { font-family: 'Inter', sans-serif; }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #f1f5f9; }
+    ::-webkit-scrollbar-thumb { background: #22c55e; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #16a34a; }
+    
+    .sidebar-link { position: relative; transition: all 0.2s ease; }
+    .sidebar-link::before {
+      content: '';
+      position: absolute;
+      left: 0; top: 0; bottom: 0;
+      width: 3px;
+      background: #22c55e;
+      border-radius: 0 4px 4px 0;
+      transform: scaleY(0);
+      transition: transform 0.2s ease;
+    }
+    .sidebar-link.active::before, .sidebar-link:hover::before { transform: scaleY(1); }
+    .sidebar-link.active { background: rgba(34,197,94,0.08); color: #16a34a; }
+    .sidebar-link:hover:not(.active) { background: rgba(15,23,42,0.04); }
+    
+    .card-hover { transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+    .card-hover:hover { transform: translateY(-2px); box-shadow: 0 10px 40px -10px rgba(0,0,0,0.1); }
+    
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+    .animate-in { animation: fadeIn 0.35s ease-out forwards; }
+    
+    @keyframes slideInRight { from { transform: translateX(100%); } to { transform: translateX(0); } }
+    .slide-in-right { animation: slideInRight 0.3s ease-out forwards; }
+    
+    @keyframes toastIn { from { transform: translateX(120%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+    @keyframes toastOut { from { transform: translateX(0); opacity: 1; } to { transform: translateX(120%); opacity: 0; } }
+    .toast-in { animation: toastIn 0.3s ease-out forwards; }
+    .toast-out { animation: toastOut 0.3s ease-in forwards; }
+    
+    .modal-backdrop { backdrop-filter: blur(4px); }
+    
+    .table-row-hover:hover { background: rgba(34,197,94,0.03); }
+    
+    .status-badge { transition: all 0.2s ease; }
+    .status-badge:hover { transform: scale(1.05); }
+    
+    .search-input:focus { box-shadow: 0 0 0 3px rgba(34,197,94,0.15); }
+    
+    .btn-primary {
+      background: linear-gradient(135deg, #22c55e, #16a34a);
+      transition: all 0.2s ease;
+    }
+    .btn-primary:hover { background: linear-gradient(135deg, #16a34a, #15803d); transform: translateY(-1px); box-shadow: 0 4px 12px rgba(34,197,94,0.3); }
+    .btn-primary:active { transform: translateY(0); }
+    
+    .skeleton { background: linear-gradient(90deg, #e2e8f0 25%, #f1f5f9 50%, #e2e8f0 75%); background-size: 200% 100%; animation: shimmer 1.5s infinite; }
+    @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+    
+    .stat-card { position: relative; overflow: hidden; }
+    .stat-card::after {
+      content: '';
+      position: absolute; top: 0; right: 0;
+      width: 80px; height: 80px;
+      background: currentColor; opacity: 0.04;
+      border-radius: 50%; transform: translate(30%, -30%);
+    }
+  </style>
+</head>
+<body class="bg-admin-50 text-admin-900 min-h-screen overflow-x-hidden">
+
+  <!-- Toast Container -->
+  <div id="toastContainer" class="fixed top-4 right-4 z-[100] flex flex-col gap-2 max-w-sm"></div>
+  <div id="loginGate" class="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-950/95" style="background-image:radial-gradient(circle at 15% 20%,rgba(34,197,94,.22),transparent 32%),radial-gradient(circle at 85% 80%,rgba(16,185,129,.16),transparent 30%)">
+    <div class="w-full max-w-5xl grid md:grid-cols-2 overflow-hidden rounded-3xl shadow-2xl border border-white/10 bg-white">
+      <div class="hidden md:flex flex-col justify-between p-10 text-white bg-gradient-to-br from-emerald-950 via-green-900 to-slate-950 relative overflow-hidden">
+        <div class="absolute -right-16 -top-16 w-72 h-72 rounded-full border-[40px] border-white/5"></div><div class="absolute -right-6 -bottom-20 w-64 h-64 rounded-full bg-emerald-400/10 blur-2xl"></div>
+        <div class="relative"><div class="w-14 h-14 rounded-2xl bg-emerald-400 text-emerald-950 font-black text-2xl flex items-center justify-center shadow-lg">BDR</div><p class="mt-6 text-xs uppercase tracking-[.3em] text-emerald-300 font-bold">BDR Pharma</p><h2 class="text-4xl font-extrabold leading-tight mt-3">One network.<br><span class="text-emerald-300">Every zone.</span></h2><p class="text-emerald-50/70 mt-4 leading-relaxed">A smarter command center for doctors, chemists, medicines and field operations.</p></div>
+        <div class="relative flex items-center gap-3 text-xs text-emerald-100/70"><span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span> Secure workspace · Role-based view</div>
+      </div>
+      <div class="p-7 sm:p-10 md:p-12"><div class="md:hidden w-12 h-12 rounded-xl bg-emerald-600 text-white font-black flex items-center justify-center mb-5">BDR</div><p class="text-xs uppercase tracking-[.22em] text-emerald-700 font-bold">Welcome back</p><h2 class="text-3xl font-extrabold text-slate-900 mt-2">Sign in to BDR</h2><p class="text-sm text-slate-500 mt-2">One admin account with access to all 12 zones.</p>
+        <form class="mt-8 space-y-4" onsubmit="event.preventDefault(); handleDemoLogin();">
+        <div><label class="block text-xs font-bold text-slate-600 mb-2">USERNAME</label><input id="loginUsername" autocomplete="username" required placeholder="Enter username" class="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-emerald-500"></div><div><label class="block text-xs font-bold text-slate-600 mb-2">PASSWORD</label><input id="loginPassword" type="password" autocomplete="current-password" required placeholder="Enter password" class="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-emerald-500"></div>
+        <p id="loginError" class="hidden text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">Incorrect credentials. Please try again.</p><button type="submit" class="w-full rounded-xl bg-gradient-to-r from-emerald-600 to-green-700 hover:from-emerald-700 hover:to-green-800 text-white font-bold py-3.5 shadow-lg shadow-emerald-600/20 transition transform hover:-translate-y-0.5">Enter Command Center <span class="ml-2">→</span></button></form>
+        <div class="mt-5 rounded-xl bg-amber-50 border border-amber-100 p-3 text-xs text-amber-900"><strong>Demo admin access:</strong> <code>admin / BDR@2026</code><br>Single administrator · access to all 12 zones.</div><p class="text-[11px] text-slate-400 mt-4">Demo sign-in for preview. Production access control must be enforced by your backend/database policies.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Confirm Dialog -->
+  <div id="confirmDialog" class="fixed inset-0 z-[90] hidden">
+    <div class="absolute inset-0 bg-black/40 modal-backdrop" onclick="closeConfirmDialog()"></div>
+    <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white rounded-2xl shadow-2xl p-6 w-full max-w-md mx-4 animate-in">
+      <div class="flex items-center gap-3 mb-4">
+        <div class="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center">
+          <svg class="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+        </div>
+        <h3 class="text-lg font-bold text-admin-900" id="confirmTitle">Confirm Action</h3>
+      </div>
+      <p class="text-admin-500 text-sm mb-6" id="confirmMessage">Are you sure?</p>
+      <div class="flex gap-3 justify-end">
+        <button onclick="closeConfirmDialog()" class="px-4 py-2 rounded-xl text-sm font-medium text-admin-600 hover:bg-admin-100 transition">Cancel</button>
+        <button id="confirmActionBtn" class="px-4 py-2 rounded-xl text-sm font-medium bg-red-500 text-white hover:bg-red-600 transition">Confirm</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Mobile Overlay -->
+  <div id="mobileOverlay" class="fixed inset-0 bg-black/30 z-30 hidden lg:hidden" onclick="toggleSidebar()"></div>
+
+  <div class="flex min-h-screen">
+    <!-- Sidebar -->
+    <aside id="sidebar" class="w-64 bg-white border-r border-admin-200 flex flex-col fixed h-full z-40 transition-transform duration-300 -translate-x-full lg:translate-x-0 overflow-y-auto">
+      <!-- Logo -->
+      <div class="p-5 border-b border-admin-100">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-pharma-500 to-pharma-600 flex items-center justify-center text-white font-black text-lg shadow-lg shadow-pharma-500/20">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"/></svg>
+          </div>
+          <div>
+            <h1 class="text-base font-bold text-admin-900 tracking-tight">BDR Pharma</h1>
+            <p class="text-[10px] text-pharma-600 font-semibold uppercase tracking-wider">ZONE COMMAND CENTER</p>
+          </div>
+        </div>
+      </div>
+
+      <nav class="flex-1 py-3 px-3 space-y-0.5" id="sidebarNav">
+        <a href="#dashboard" data-section="dashboard" class="sidebar-link active flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-admin-600" onclick="navigateTo('dashboard')">
+          <i data-lucide="layout-dashboard" class="w-[18px] h-[18px]"></i><span>Dashboard</span>
+        </a>
+        <a href="#doctors" data-section="doctors" class="sidebar-link flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-admin-600" onclick="navigateTo('doctors')">
+          <i data-lucide="stethoscope" class="w-[18px] h-[18px]"></i><span>Doctors</span>
+        </a>
+        <a href="#users" data-section="users" class="sidebar-link flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-admin-600" onclick="navigateTo('users')">
+          <i data-lucide="users" class="w-[18px] h-[18px]"></i><span>Users</span>
+        </a>
+        <a href="#chemists" data-section="chemists" class="sidebar-link flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-admin-600" onclick="navigateTo('chemists')">
+          <i data-lucide="store" class="w-[18px] h-[18px]"></i><span>Chemists</span>
+        </a>
+        <a href="#medicines" data-section="medicines" class="sidebar-link flex items-center gap-3 pl-10 pr-3 py-2 rounded-xl text-sm font-medium text-admin-500" onclick="navigateTo('medicines')">
+          <i data-lucide="pill" class="w-4 h-4"></i><span>Medicine</span>
+        </a>
+        <a href="#blogs" data-section="blogs" class="sidebar-link flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-admin-600" onclick="navigateTo('blogs')">
+          <i data-lucide="newspaper" class="w-[18px] h-[18px]"></i><span>Blogs</span>
+        </a>
+        <a href="#programs" data-section="programs" class="sidebar-link flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-admin-600" onclick="navigateTo('programs')">
+          <i data-lucide="calendar-days" class="w-[18px] h-[18px]"></i><span>Programs</span>
+        </a>
+        <a href="#forms" data-section="forms" class="sidebar-link flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-admin-600" onclick="navigateTo('forms')">
+          <i data-lucide="clipboard-list" class="w-[18px] h-[18px]"></i><span>Forms</span>
+        </a>
+        <a href="#submissions" data-section="submissions" class="sidebar-link flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-admin-600" onclick="navigateTo('submissions')">
+          <i data-lucide="file-check" class="w-[18px] h-[18px]"></i><span>Submissions</span>
+        </a>
+        <a href="#notifications" data-section="notifications" class="sidebar-link flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-admin-600" onclick="navigateTo('notifications')">
+          <i data-lucide="bell" class="w-[18px] h-[18px]"></i><span>Notifications</span>
+        </a>
+        <a href="#learning-resources" data-section="learning-resources" class="sidebar-link flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-admin-600" onclick="navigateTo('learning-resources')">
+          <i data-lucide="book-open" class="w-[18px] h-[18px]"></i><span>Learning Resources</span>
+        </a>
+        <a href="#faq" data-section="faq" class="sidebar-link flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-admin-600" onclick="navigateTo('faq')">
+          <i data-lucide="circle-help" class="w-[18px] h-[18px]"></i><span>FAQ</span>
+        </a>
+        <a href="#analytics" data-section="analytics" class="sidebar-link flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-admin-600" onclick="navigateTo('analytics')">
+          <i data-lucide="chart-no-axes-combined" class="w-[18px] h-[18px]"></i><span>Analytics</span>
+        </a>
+        <a href="#zones" data-section="zones" class="sidebar-link flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-admin-600" onclick="navigateTo('zones')">
+          <i data-lucide="map" class="w-[18px] h-[18px]"></i><span>Zones</span>
+        </a>
+        <a href="#guidelines" data-section="guidelines" class="sidebar-link flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-admin-600" onclick="navigateTo('guidelines')">
+          <i data-lucide="bookmark" class="w-[18px] h-[18px]"></i><span>Guidelines</span>
+        </a>
+      </nav>
+      <!-- User Profile -->
+      <div class="p-4 border-t border-admin-100">
+        <div class="flex items-center gap-3 px-2 py-2 mb-3">
+          <div class="w-9 h-9 rounded-full bg-gradient-to-br from-pharma-400 to-pharma-600 flex items-center justify-center text-white text-sm font-bold" id="userAvatar">A</div>
+          <div class="flex-1 min-w-0">
+            <p class="text-sm font-semibold text-admin-900 truncate" id="userName">Admin</p>
+            <p class="text-[10px] text-pharma-600 font-medium uppercase tracking-wider">Administrator</p>
+          </div>
+        </div>
+        <button onclick="logout()" class="flex items-center gap-2 w-full px-3 py-2 rounded-xl bg-red-50 border border-red-100 text-red-600 hover:bg-red-100 transition text-sm font-medium">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
+          Logout
+        </button>
+      </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="flex-1 lg:ml-64 min-h-screen flex flex-col">
+      <!-- Top Navbar -->
+      <header class="sticky top-0 z-30 bg-white/80 backdrop-blur-xl border-b border-admin-200 px-4 md:px-6 lg:px-8 py-3 flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <button onclick="toggleSidebar()" class="lg:hidden p-2 rounded-lg hover:bg-admin-100 text-admin-500 transition">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
+          </button>
+          <div>
+            <h2 class="text-lg font-bold text-admin-900" id="pageTitle">Dashboard</h2>
+            <p class="text-xs text-admin-400" id="pageSubtitle">Overview of your pharmacy</p>
+          </div>
+        </div>
+        <div class="flex items-center gap-2 md:gap-4">
+          <div class="hidden md:flex items-center gap-2 px-3 py-1.5 bg-pharma-50 rounded-full border border-pharma-100">
+            <div class="w-2 h-2 rounded-full bg-pharma-500 animate-pulse"></div>
+            <span class="text-xs font-medium text-pharma-700">Live Data</span>
+          </div>
+          <button onclick="refreshData()" class="p-2 rounded-lg hover:bg-admin-100 text-admin-500 transition" title="Refresh">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+          </button>
+          <div class="relative">
+            <button onclick="toggleNotifications()" class="p-2 rounded-lg hover:bg-admin-100 text-admin-500 transition relative">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
+              <span id="notifBadge" class="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full hidden"></span>
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <!-- Content Area -->
+      <div id="contentArea" class="flex-1 p-4 md:p-6 lg:p-8">
+        <!-- Content injected by JS -->
+      </div>
+    </main>
+  </div>
+
+   <!-- ==================== JAVASCRIPT MODULES ==================== -->
+
+  <!-- Core State -->
+  <script src="/js/modules/core/state.js"></script>
+
+  <!-- Shared UI Helpers -->
+  <script src="/js/modules/shared/ui.js"></script>
+
+  <!-- Feature Modules -->
+  <script src="/js/modules/features/doctors.js"></script>
+  <script src="/js/modules/features/users.js"></script>
+  <script src="/js/modules/features/chemists.js"></script>
+  <script src="/js/modules/features/medicines.js"></script>
+  <script src="/js/modules/features/blogs.js"></script>
+  <script src="/js/modules/features/programs.js"></script>
+  <script src="/js/modules/features/forms.js"></script>
+  <script src="/js/modules/features/submissions.js"></script>
+  <script src="/js/modules/features/notifications.js"></script>
+  <script src="/js/modules/features/learning-resources.js"></script>
+  <script src="/js/modules/features/faq.js"></script>
+  <script src="/js/modules/features/analytics.js"></script>
+  <script src="/js/modules/features/zones.js"></script>
+  <script src="/js/modules/features/guidelines.js"></script>
+
+  <!-- Core Data -->
+  <script src="/js/modules/core/data.js"></script>
+
+  <!-- Navigation -->
+  <script src="/js/modules/layout/navigation.js"></script>
+
+  <!-- Modal Routing -->
+  <script src="/js/modules/shared/modal-routing.js"></script>
+
+</body>
+</html>

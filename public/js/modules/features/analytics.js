@@ -1,0 +1,13 @@
+// Modularized from legacy.html; classic script intentionally preserves legacy global handlers.
+    // ==================== ANALYTICS ====================
+    function renderAnalytics(container) {
+      const zoneSummary = getZoneSummary();
+      container.innerHTML = `<div class="animate-in space-y-6">
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">${renderStatCard('Zones', 12, 'store', 'bg-indigo-50 text-indigo-600', 'Complete coverage')}${renderStatCard('Doctors', appState.doctors.length, 'users', 'bg-blue-50 text-blue-600', 'Across all zones')}${renderStatCard('Chemists', appState.chemists.length, 'store', 'bg-amber-50 text-amber-600', 'Across all zones')}${renderStatCard('Medicines', appState.medicines.length, 'pill', 'bg-purple-50 text-purple-600', 'Chemist inventory')}</div>
+        <div class="grid lg:grid-cols-2 gap-6"><div class="bg-white rounded-2xl border border-admin-200 p-5"><h3 class="text-sm font-bold text-admin-900 mb-4">Doctors by Zone</h3><div class="h-72"><canvas id="zoneDoctorsChart"></canvas></div></div><div class="bg-white rounded-2xl border border-admin-200 p-5"><h3 class="text-sm font-bold text-admin-900 mb-4">Chemists by Zone</h3><div class="h-72"><canvas id="zoneChemistsChart"></canvas></div></div></div>
+        <div class="bg-white rounded-2xl border border-admin-200 overflow-hidden"><div class="px-5 py-4 border-b border-admin-100"><h3 class="font-bold text-admin-900">Complete Zone-wise Analysis</h3><p class="text-xs text-admin-400 mt-1">Admin can compare doctor verification and chemist activity zone by zone.</p></div>${renderZoneTable(zoneSummary)}</div>
+      </div>`;
+      setTimeout(initZoneCharts,100);
+    }
+    function initZoneCharts(){ const rows=getZoneSummary(); const labels=rows.map(r=>r.zone); const d=document.getElementById('zoneDoctorsChart'); if(d){ appState.chartInstances.zoneDoctors?.destroy(); appState.chartInstances.zoneDoctors=new Chart(d,{type:'bar',data:{labels,datasets:[{label:'Doctors',data:rows.map(r=>r.doctors),backgroundColor:'#3b82f6',borderRadius:6}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{precision:0}},x:{grid:{display:false}}}}}); } const c=document.getElementById('zoneChemistsChart'); if(c){ appState.chartInstances.zoneChemists?.destroy(); appState.chartInstances.zoneChemists=new Chart(c,{type:'bar',data:{labels,datasets:[{label:'Chemists',data:rows.map(r=>r.chemists),backgroundColor:'#f59e0b',borderRadius:6}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{precision:0}},x:{grid:{display:false}}}}}); }}
+
