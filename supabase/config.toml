@@ -1,0 +1,2 @@
+[functions.create-zone]
+verify_jwt = false
